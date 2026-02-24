@@ -13,6 +13,7 @@ import salaryStructureRoutes from './modules/salary-structure/salary-structure.r
 import payrollRoutes from './modules/payroll/payroll.routes';
 import accountingRoutes from './modules/accounting/accounting.routes';
 import reportingRoutes from './modules/reporting/reporting.routes';
+import authRoutes from './modules/auth/auth.routes';
 
 // Initialize auto-posting event handlers
 import './modules/accounting/auto-posting.service';
@@ -47,6 +48,7 @@ app.get('/health', (_req, res) => {
 // ---- API Routes ----
 const api = config.apiPrefix;
 
+app.use(`${api}/auth`, authRoutes);
 app.use(`${api}/employees`, employeeRoutes);
 app.use(`${api}/salary`, salaryStructureRoutes);
 app.use(`${api}/payroll`, payrollRoutes);
