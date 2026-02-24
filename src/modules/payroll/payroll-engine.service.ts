@@ -57,6 +57,11 @@ export class PayrollEngineService {
   async calculatePayroll(dto: RunPayrollDto, userId: UUID): Promise<PayrollProcessResult> {
     const db = getDb();
 
+    // Auto-derive period dates from month/year if not provided
+    const periodStart = dto.periodStart || `${dto.year}-${String(dto.month).padStart(2, '0')}-01`;
+    const lastDay = new Date(dto.year, dto.month, 0).getDate();
+    const periodEnd = dto.periodEnd || `${dto.year}-${String(dto.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
     // Check for existing payroll run
     const existing = await db('payroll_runs')
       .where({
@@ -80,8 +85,8 @@ export class PayrollEngineService {
       organization_id: dto.organizationId,
       outlet_id: dto.outletId,
       period_type: 'MONTHLY',
-      period_start: dto.periodStart,
-      period_end: dto.periodEnd,
+      period_start: periodStart,
+      period_end: periodEnd,
       month: dto.month,
       year: dto.year,
       status: 'DRAFT',
@@ -376,8 +381,8 @@ export class PayrollEngineService {
       payroll_run_id: payrollRunId,
       employee_id: emp.id,
       outlet_id: emp.primary_outlet_id,
-      period_start: dto.periodStart,
-      period_end: dto.periodEnd,
+      period_start: `${dto.year}-${String(dto.month).padStart(2, '0')}-01`,
+      period_end: `${dto.year}-${String(dto.month).padStart(2, '0')}-${String(new Date(dto.year, dto.month, 0).getDate()).padStart(2, '0')}`,
       working_days: totalDaysInMonth,
       present_days: attendance.presentDays,
       paid_days: paidDays,
@@ -397,12 +402,14 @@ export class PayrollEngineService {
     });
 
     // Insert slip components
+    const systemComponentCodes = ['PF_EE', 'ESI_EE', 'PT', 'TDS', 'PF_ER', 'ESI_ER', 'OT'];
     const allComponents = [...earnings, ...deductions, ...employerContributions];
     for (const comp of allComponents) {
+      const isSystemComponent = systemComponentCodes.includes(comp.componentCode);
       await db('payroll_slip_components').insert({
         id: uuidv4(),
         payroll_slip_id: slipId,
-        component_id: comp.componentId,
+        component_id: isSystemComponent ? null : comp.componentId,
         component_code: comp.componentCode,
         component_name: comp.componentName,
         type: comp.type,

@@ -171,16 +171,16 @@ export class JournalEntryService {
         totalDebit: MoneyUtil.formatINR(totalDebit),
       });
 
-      return this.getById(id);
+      return this.getById(id, trx);
     });
   }
 
-  async getById(id: UUID): Promise<JournalEntry> {
-    const db = getDb();
-    const row = await db('journal_entries').where({ id }).first();
+  async getById(id: UUID, trxOrDb?: any): Promise<JournalEntry> {
+    const conn = trxOrDb || getDb();
+    const row = await conn('journal_entries').where({ id }).first();
     if (!row) throw new NotFoundError('JournalEntry', id);
 
-    const lines = await db('journal_entry_lines')
+    const lines = await conn('journal_entry_lines')
       .where({ journal_entry_id: id })
       .orderBy('debit', 'desc'); // debits first
 

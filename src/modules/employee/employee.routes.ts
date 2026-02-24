@@ -21,7 +21,7 @@ router.get('/', authenticate, authorize('employee:read'), async (req: Request, r
         outletId: req.query.outletId as string,
         department: req.query.department as any,
         employmentType: req.query.employmentType as any,
-        isActive: req.query.isActive === 'true',
+        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
         search: req.query.search as string,
       },
       {
