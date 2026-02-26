@@ -22,6 +22,7 @@ export function getDb(): Knex {
       migrations: {
         directory: __dirname + '/migrations',
         tableName: 'knex_migrations',
+        loadExtensions: ['.js'],
       },
       seeds: {
         directory: __dirname + '/seeds',
