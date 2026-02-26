@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # ---- Nginx Reverse Proxy ----
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- Backend API (Express) ----
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - API_PREFIX=/api/v1
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=digitory_financial
+      - DB_USER=digitory
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_POOL_MIN=5
+      - DB_POOL_MAX=30
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - JWT_SECRET=${JWT_SECRET:-production-secret-change-me}
+      - JWT_EXPIRY=${JWT_EXPIRY:-24h}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - SALARY_ENCRYPTION_KEY=${SALARY_ENCRYPTION_KEY:-}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET_PAYSLIPS=${S3_BUCKET_PAYSLIPS:-digitory-payslips}
+      - S3_BUCKET_REPORTS=${S3_BUCKET_REPORTS:-digitory-reports}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_FROM=${EMAIL_FROM:-payroll@digitory.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- Frontend (Next.js) ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- PostgreSQL Database ----
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: digitory_financial
+      POSTGRES_USER: digitory
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U digitory -d digitory_financial"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- Redis Cache ----
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  digitory-network:
+    driver: bridge
