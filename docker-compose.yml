@@ -1,6 +1,21 @@
-version: '3.8'
-
 services:
+  # ---- Nginx Reverse Proxy (port 80) ----
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- Backend API (Express, port 3000 internal) ----
   app:
     build:
       context: .
@@ -9,6 +24,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - PORT=3000
+      - API_PREFIX=/api/v1
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=digitory_financial
@@ -26,6 +43,24 @@ services:
     networks:
       - digitory-network
 
+  # ---- Frontend (Next.js, port 3001 internal) ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - digitory-network
+
+  # ---- PostgreSQL Database ----
   postgres:
     image: postgres:16-alpine
     environment:
@@ -45,6 +80,7 @@ services:
     networks:
       - digitory-network
 
+  # ---- Redis Cache ----
   redis:
     image: redis:7-alpine
     ports:
