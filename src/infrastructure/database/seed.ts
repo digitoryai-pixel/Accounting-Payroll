@@ -17,6 +17,13 @@ async function seed() {
   const systemUserId = uuidv4();
 
   try {
+    // Skip if already seeded
+    const existing = await db('organizations').first();
+    if (existing) {
+      logger.info('Database already seeded, skipping...');
+      return;
+    }
+
     logger.info('Starting database seed...');
 
     // 1. Create organization

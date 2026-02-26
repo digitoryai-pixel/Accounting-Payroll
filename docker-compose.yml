@@ -34,6 +34,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET:-production-secret-change-me}
+      - RUN_SEED=${RUN_SEED:-true}
     depends_on:
       postgres:
         condition: service_healthy
